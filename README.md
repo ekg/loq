@@ -10,9 +10,11 @@ LOQ is a single script that provides an easy way to transcribe your speech to te
     cd loq
     ```
 
-2. **Create a configuration file** named `.keys` in the repository directory and add your OpenAI API key:
+2. **Create a configuration file** named `keys` in your configuration directory `~/.loq` and add your OpenAI API key:
     ```bash
-    echo "OPENAI_API_KEY=sk-YOUR_API_KEY" > .keys
+    mkdir -p ~/.loq
+    echo "OPENAI_API_KEY=sk-YOUR_API_KEY" > ~/.loq/keys
+    chmod 600 ~/.loq/keys
     ```
 
 3. **Install the required dependencies**:

@@ -1,9 +1,11 @@
 #!/bin/bash
 
+set -euox pipefail
+
 # Set up directories
 LOQ_DIR="$HOME/.loq"
 TMP_DIR="$LOQ_DIR/tmp"
-CONFIG_FILE="$LOQ_DIR/.keys"
+CONFIG_FILE="$LOQ_DIR/keys"
 STATS_FILE="$LOQ_DIR/stats.tsv"
 LOG_FILE="$LOQ_DIR/loq.log"
 
@@ -132,3 +134,52 @@ toggle_recording() {
         start_recording
     fi
 }
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    log_error "API key not found. Please add your OpenAI API key to $CONFIG_FILE"
+    exit 1
+fi
+
+source "$CONFIG_FILE"
+
+if [ -z "$OPENAI_API_KEY" ]; then
+    log_error "API key not found. Please add your OpenAI API key to $CONFIG_FILE"
+    exit 1
+fi
+
+if [ ! -d "$LOQ_DIR/recordings" ]; then
+    mkdir -p "$LOQ_DIR/recordings"
+fi
+
+if [ ! -d "$TMP_DIR" ]; then
+    mkdir -p "$TMP_DIR"
+fi
+
+if [ ! -f "$STATS_FILE" ]; then
+    touch "$STATS_FILE"
+fi
+
+if [ -f "$TMP_DIR/recording.lock" ]; then
+    # If recording.lock file exists, display a notification
+    NOTIFICATION_ID=$(notify "Recording..." "🎙️ Recording is in progress")
+    echo $NOTIFICATION_ID > "$TMP_DIR/notification_id"
+fi
+
+# if we have no args print help
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 {start|stop|toggle}"
+    exit 1
+fi
+
+# Main script logic
+case "$1" in
+    start)
+        start_recording
+        ;;
+    stop)
+        stop_recording
+        ;;
+    toggle)
+        toggle_recording
+        ;;
+esac
