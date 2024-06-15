@@ -1,0 +1,134 @@
+#!/bin/bash
+
+# Set up directories
+LOQ_DIR="$HOME/.loq"
+TMP_DIR="$LOQ_DIR/tmp"
+CONFIG_FILE="$LOQ_DIR/.keys"
+STATS_FILE="$LOQ_DIR/stats.tsv"
+LOG_FILE="$LOQ_DIR/loq.log"
+
+mkdir -p "$LOQ_DIR" "$TMP_DIR" "$LOQ_DIR/recordings" "$LOQ_DIR/transcripts" "$LOQ_DIR/stats"
+
+# Function to log errors
+log_error() {
+    echo "$(date -u +"%Y-%m-%d %H:%M:%S") ERROR: $1" >> "$LOG_FILE"
+}
+
+# Function to display notification
+notify() {
+    NOTIFICATION_ID=$(notify-send "$1" "$2" -u critical --print-id)
+    echo $NOTIFICATION_ID
+}
+
+# Function to close notification
+close_notification() {
+    gdbus call --session --dest=org.freedesktop.Notifications --object-path=/org/freedesktop/Notifications --method=org.freedesktop.Notifications.CloseNotification "$1"
+}
+
+# Function to start recording
+start_recording() {
+    local timestamp=$(date -u +"%Y%m%dT%H%M%SZ")
+    local audio="$LOQ_DIR/recordings/$timestamp.wav"
+    touch "$audio"
+    echo $audio > "$TMP_DIR/audio"
+    
+    # Create lock file to indicate recording is in progress
+    touch "$TMP_DIR/recording.lock"
+    
+    # Display recording notification
+    NOTIFICATION_ID=$(notify "Recording..." "🎙️ Recording has started")
+    echo $NOTIFICATION_ID > "$TMP_DIR/notification_id"
+    
+    # Start recording
+    rec -c 1 -r 16000 -t wav "$audio" &
+    echo $! > "$TMP_DIR/recording_pid"
+    
+    # Set a timeout to automatically stop recording after a certain period (e.g., 1 hour)
+    (sleep 3600 && stop_recording) &
+}
+
+# Function to stop recording and process the audio
+stop_recording() {
+    if [ ! -f "$TMP_DIR/recording.lock" ]; then
+        log_error "No recording in progress"
+        exit 1
+    fi
+
+    local pid=$(cat "$TMP_DIR/recording_pid")
+    kill $pid
+
+    # Remove lock file to indicate recording is stopped
+    rm -f "$TMP_DIR/recording.lock"
+
+    # Close recording notification
+    local notification_id=$(cat "$TMP_DIR/notification_id")
+    close_notification "$notification_id"
+
+    local audio=$(cat "$TMP_DIR/audio")
+    local mp3_audio="${audio%.wav}.mp3"
+    local transcript="${audio%.wav}.txt"
+
+    # Convert wav to mp3
+    lame -V 4 "$audio" "$mp3_audio"
+    if [ $? -ne 0 ]; then
+        log_error "Failed to convert wav to mp3"
+        exit 1
+    fi
+
+    # Send audio file to OpenAI Whisper API using curl
+    local start_time=$(date +%s)
+    local response=$(curl -s -X POST -H "Authorization: Bearer $OPENAI_API_KEY" \
+      -H "Content-Type: multipart/form-data" \
+      -F file="@$mp3_audio" \
+      -F model="whisper-1" \
+      -F response_format="text" \
+      https://api.openai.com/v1/audio/transcriptions)
+
+    if [ $? -ne 0 ]; then
+        log_error "Failed to send audio to Whisper API"
+        exit 1
+    fi
+    local end_time=$(date +%s)
+
+    # Save transcription to a text file
+    echo "$response" > "$transcript"
+
+    # Clean up wav of recording
+    rm -f "$audio"
+
+    # Extract statistics from response and calculate additional stats
+    local word_count=$(echo "$response" | wc -w)
+    local recording_duration=$(soxi -D "$mp3_audio")
+    local words_per_second=$(echo "scale=2; $word_count / $recording_duration" | bc)
+    local words_per_minute=$(echo "scale=2; $words_per_second * 60" | bc)
+    local processing_time=$(($end_time - $start_time))
+    local utc_time=$(date -u +"%Y-%m-%d %H:%M:%S")
+    local local_time=$(date +"%Y-%m-%d %H:%M:%S")
+
+    # Append statistics to stats file
+    if [ ! -f "$STATS_FILE" ]; then
+        echo -e "UTC_Time\tLocal_Time\tDuration_Seconds\tWord_Count\tWords_Per_Second\tWords_Per_Minute\tProcessing_Time_Seconds" > "$STATS_FILE"
+    fi
+    echo -e "$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time" >> "$STATS_FILE"
+
+    # Save statistics to a .stats file attached to the recording
+    local stats_data=$(echo -e "UTC_Time: $utc_time\nLocal_Time: $local_time\nDuration_Seconds: $recording_duration\nWord_Count: $word_count\nWords_Per_Second: $words_per_second\nWords_Per_Minute: $words_per_minute\nProcessing_Time_Seconds: $processing_time")
+    echo -e "$stats_data" > "${audio%.wav}.stats"
+
+    # Copy response to clipboard
+    echo "$response" | xclip -sel clip
+
+    # Simulate the paste action
+    xdotool key ctrl+v
+}
+
+# Function to toggle recording
+toggle_recording() {
+    if [ -f "$TMP_DIR/recording.lock" ]; then
+        # If recording.lock file exists, stop the recording
+        stop_recording
+    else
+        # If recording.lock file does not exist, start the recording
+        start_recording
+    fi
+}
