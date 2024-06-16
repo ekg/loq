@@ -47,6 +47,7 @@ start_recording() {
   
   # Set a timeout to automatically stop recording after a certain period (e.g., 1 hour)
   (sleep 3600 && stop_recording) &
+  echo $! > "$TMP_DIR/cleanup_pid"
 }
 
 # Function to stop recording and process the audio
@@ -57,6 +58,9 @@ stop_recording() {
   fi
   
   local pid=$(cat "$TMP_DIR/recording_pid")
+  kill $pid
+
+  local pid=$(cat "$TMP_DIR/cleanup_pid")
   kill $pid
   
   # Remove lock file to indicate recording is stopped
