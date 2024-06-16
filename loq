@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euox pipefail
+set -euo pipefail
 
 # Set up directories
 LOQ_DIR="$HOME/.loq"
@@ -8,6 +8,7 @@ TMP_DIR="$LOQ_DIR/tmp"
 CONFIG_FILE="$LOQ_DIR/keys"
 STATS_FILE="$LOQ_DIR/stats.tsv"
 LOG_FILE="$LOQ_DIR/loq.log"
+HUD_TIMEOUT=5
 
 mkdir -p "$LOQ_DIR" "$TMP_DIR" "$LOQ_DIR/recordings" "$LOQ_DIR/transcripts" "$LOQ_DIR/stats"
 
@@ -18,13 +19,14 @@ log_error() {
 
 # Function to display notification
 notify() {
-  NOTIFICATION_ID=$(notify-send "$1" "$2" -u critical --print-id)
-  echo $NOTIFICATION_ID
+  NOTIFICATION_ID=$(notify-send "$1" "$2" -e -u critical --print-id -t 0)
+  echo $NOTIFICATION_ID >"$TMP_DIR/notification_id"
 }
 
 # Function to close notification
 close_notification() {
-  gdbus call --session --dest=org.freedesktop.Notifications --object-path=/org/freedesktop/Notifications --method=org.freedesktop.Notifications.CloseNotification "$1"
+  local id=$(cat "$TMP_DIR/notification_id")
+  gdbus call --session --dest=org.freedesktop.Notifications --object-path=/org/freedesktop/Notifications --method=org.freedesktop.Notifications.CloseNotification "$id" >/dev/null
 }
 
 # Function to start recording
@@ -38,8 +40,7 @@ start_recording() {
   touch "$TMP_DIR/recording.lock"
   
   # Display recording notification
-  NOTIFICATION_ID=$(notify "Recording..." "🎙️ Recording has started")
-  echo $NOTIFICATION_ID > "$TMP_DIR/notification_id"
+  notify "Recording..." "🎙️ Recording has started"
   
   # Start recording
   rec -c 1 -r 16000 -t wav "$audio" &
@@ -61,15 +62,11 @@ stop_recording() {
   kill $pid
 
   local pid=$(cat "$TMP_DIR/cleanup_pid")
-  kill $pid
-  
+  kill -HUP $pid
+
   # Remove lock file to indicate recording is stopped
   rm -f "$TMP_DIR/recording.lock"
-  
-  # Close recording notification
-  local notification_id=$(cat "$TMP_DIR/notification_id")
-  close_notification "$notification_id"
-  
+
   local audio=$(cat "$TMP_DIR/audio")
   local mp3_audio="${audio%.wav}.mp3"
   local transcript="${audio%.wav}.txt"
@@ -80,6 +77,13 @@ stop_recording() {
     log_error "Failed to convert wav to mp3"
     exit 1
   fi
+
+  # Close processing notification
+  close_notification
+  
+  # Display notification for sending to Whisper API
+  audio_kb=$(du -k "$mp3_audio" | cut -f1)
+  notify "Sending to Whisper..." "🔊 Sending $audio_kb KB audio to Whisper API"
   
   # Send audio file to OpenAI Whisper API using curl
   local start_time=$(date +%s.%N)
@@ -94,7 +98,7 @@ stop_recording() {
     exit 1
   fi
   local end_time=$(date +%s.%N)
-  
+
   # Save transcription to a text file
   echo "$response" > "$transcript"
   
@@ -119,12 +123,24 @@ stop_recording() {
   # Save statistics to a .stats file attached to the recording
   local stats_data=$(echo -e "UTC_Time: $utc_time\nLocal_Time: $local_time\nDuration_Seconds: $recording_duration\nWord_Count: $word_count\nWords_Per_Second: $words_per_second\nWords_Per_Minute: $words_per_minute\nProcessing_Time_Seconds: $processing_time")
   echo -e "$stats_data" > "${audio%.wav}.stats"
-  
+
+  close_notification
+  # show a notification with stats (words, duration, words per second, words per minute) and processing time, as 'X words / Ys, Z wpm, Qs proc'
+  # try again, make sure to round to 2 decimal places
+  words_per_second=$(printf "%.2f" $words_per_second)
+  words_per_minute=$(printf "%.2f" $words_per_minute)
+  processing_time=$(printf "%.2f" $processing_time)
+  recording_duration=$(printf "%.2f" $recording_duration)
+  notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
+
   # Copy response to clipboard
   echo "$response" | xclip -sel clip
   
   # Simulate the paste action
   xdotool key ctrl+v
+
+  # Close processing response notification
+  (sleep $HUD_TIMEOUT && close_notification) &
 }
 
 # Function to toggle recording
@@ -160,12 +176,6 @@ fi
 
 if [ ! -f "$STATS_FILE" ]; then
   touch "$STATS_FILE"
-fi
-
-if [ -f "$TMP_DIR/recording.lock" ]; then
-  # If recording.lock file exists, display a notification
-  NOTIFICATION_ID=$(notify "Recording..." "🎙️ Recording is in progress")
-  echo $NOTIFICATION_ID > "$TMP_DIR/notification_id"
 fi
 
 # if we have no args print help
