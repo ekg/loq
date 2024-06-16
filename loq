@@ -10,7 +10,7 @@ STATS_FILE="$LOQ_DIR/stats.tsv"
 LOG_FILE="$LOQ_DIR/loq.log"
 HUD_TIMEOUT=5
 
-mkdir -p "$LOQ_DIR" "$TMP_DIR" "$LOQ_DIR/recordings" "$LOQ_DIR/transcripts" "$LOQ_DIR/stats"
+mkdir -p "$LOQ_DIR" "$TMP_DIR" "$LOQ_DIR/recordings" "$LOQ_DIR/stats"
 
 # Function to log errors
 log_error() {
@@ -59,7 +59,7 @@ stop_recording() {
   fi
 
   sleep 0.2 # seems we need to pad slighly for whisper to get the last word
-  
+
   local pid=$(cat "$TMP_DIR/recording_pid")
   kill $pid
 

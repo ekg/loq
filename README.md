@@ -47,12 +47,9 @@
 4. **Paste**: Paste the transcribed text into your desired application by using the appropriate keyboard shortcut (e.g., Ctrl+V).
 
 ### Directory Structure:
-- `~/.loq/recordings`: Stores the recorded MP3 files.
-- `~/.loq/transcripts`: Stores the transcriptions of the recordings.
-- `~/.loq/stats`: Stores the statistics of the recordings.
+- `~/.loq/recordings`: Stores the recorded MP3 files, transcripts, and stats.
 - `~/.loq/tmp`: Temporary files for ongoing processes.
 - `~/.loq/stats.tsv`: Aggregated statistics of all recordings.
-- `~/.loq/loq.log`: Log file for errors and important messages.
 
 ## Customization:
 
