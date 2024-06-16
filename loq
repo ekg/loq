@@ -134,7 +134,7 @@ stop_recording() {
   notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
 
   # Copy response to clipboard
-  echo "$response" | xclip -sel clip
+  echo -n "$response" | xclip -sel clip
   
   # Simulate the paste action
   xdotool key ctrl+v
