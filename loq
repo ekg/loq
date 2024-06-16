@@ -10,7 +10,7 @@ STATS_FILE="$LOQ_DIR/stats.tsv"
 LOG_FILE="$LOQ_DIR/loq.log"
 HUD_TIMEOUT=5
 
-mkdir -p "$LOQ_DIR" "$TMP_DIR" "$LOQ_DIR/recordings" "$LOQ_DIR/stats"
+mkdir -p "$LOQ_DIR" "$TMP_DIR" "$LOQ_DIR/recordings"
 
 # Function to log errors
 log_error() {
@@ -58,7 +58,7 @@ stop_recording() {
     exit 1
   fi
 
-  sleep 0.2 # seems we need to pad slighly for whisper to get the last word
+  sleep 0.2 # seems we need to pad slightly for whisper to get the last word
 
   local pid=$(cat "$TMP_DIR/recording_pid")
   kill $pid
@@ -113,17 +113,18 @@ stop_recording() {
   local words_per_second=$(echo "scale=2; $word_count / $recording_duration" | bc)
   local words_per_minute=$(echo "scale=2; $words_per_second * 60" | bc)
   local processing_time=$(echo "$end_time - $start_time" | bc)
-  local utc_time=$(date -u +"%Y-%m-%d %H:%M:%S")
-  local local_time=$(date +"%Y-%m-%d %H:%M:%S")
+  local utc_time=$(date -u +"%Y%m%dT%H%M%SZ")
+  local local_time=$(date +"%Y%m%dT%H%M%SZ")
+  local microseconds_since_1970=$(date +%s%6N)
   
   # Append statistics to stats file
-  if [ ! -f "$STATS_FILE" ]; then
-    echo -e "UTC_Time\tLocal_Time\tDuration_Seconds\tWord_Count\tWords_Per_Second\tWords_Per_Minute\tProcessing_Time_Seconds" > "$STATS_FILE"
+  if [ ! -s "$STATS_FILE" ]; then
+    echo -e "Microsec_Since_1970\tUTC_Time\tLocal_Time\tDuration_Sec\tWord_Count\tWPS\tWPM\tProcessing_Sec" > "$STATS_FILE"
   fi
-  echo -e "$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time" >> "$STATS_FILE"
+  echo -e "$microseconds_since_1970\t$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time" >> "$STATS_FILE"
   
   # Save statistics to a .stats file attached to the recording
-  local stats_data=$(echo -e "UTC_Time: $utc_time\nLocal_Time: $local_time\nDuration_Seconds: $recording_duration\nWord_Count: $word_count\nWords_Per_Second: $words_per_second\nWords_Per_Minute: $words_per_minute\nProcessing_Time_Seconds: $processing_time")
+  local stats_data=$(echo -e "$microseconds_since_1970\t$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time")
   echo -e "$stats_data" > "${audio%.wav}.stats"
 
   close_notification
