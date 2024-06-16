@@ -57,6 +57,8 @@ stop_recording() {
     log_error "No recording in progress"
     exit 1
   fi
+
+  sleep 0.2 # seems we need to pad slighly for whisper to get the last word
   
   local pid=$(cat "$TMP_DIR/recording_pid")
   kill $pid
