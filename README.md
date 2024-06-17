@@ -8,7 +8,7 @@
 
 1. **Clone this repository** to your desired location:
     ```bash
-    git clone https://github.com/yourusername/loq.git
+    git clone https://github.com/ekg/loq.git
     cd loq
     ```
 
