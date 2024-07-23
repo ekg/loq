@@ -95,6 +95,8 @@ stop_recording() {
     -F model=$LOQ_API_MODEL \
     -F response_format="text" \
     $LOQ_API_URL )
+  # trim leading and trailing whitespace from response
+  response=$(echo "$response" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
   if [ $? -ne 0 ]; then
     log_error "Failed to send audio to Whisper API"
     exit 1
