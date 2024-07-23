@@ -89,12 +89,12 @@ stop_recording() {
   
   # Send audio file to OpenAI Whisper API using curl
   local start_time=$(date +%s.%N)
-  local response=$(curl -s -X POST -H "Authorization: Bearer $OPENAI_API_KEY" \
+  local response=$(curl -s -X POST -H "Authorization: Bearer $LOQ_API_KEY" \
     -H "Content-Type: multipart/form-data" \
     -F file="@$mp3_audio" \
-    -F model="whisper-1" \
+    -F model=$LOQ_API_MODEL \
     -F response_format="text" \
-    https://api.openai.com/v1/audio/transcriptions)
+    $LOQ_API_URL )
   if [ $? -ne 0 ]; then
     log_error "Failed to send audio to Whisper API"
     exit 1
@@ -164,10 +164,21 @@ fi
 
 source "$CONFIG_FILE"
 
-if [ -z "$OPENAI_API_KEY" ]; then
-  log_error "API key not found. Please add your OpenAI API key to $CONFIG_FILE"
+if [ -z "$LOQ_API_KEY" ]; then
+  log_error "API key not found. Please add your API key to $CONFIG_FILE"
   exit 1
 fi
+
+if [ -z "$LOQ_API_MODEL" ]; then
+  log_error "API model not found. Please add your model to $CONFIG_FILE"
+  exit 1
+fi
+
+if [ -z "$LOQ_API_URL" ]; then
+  log_error "API URL not found. Please add your API URL to $CONFIG_FILE"
+  exit 1
+fi
+
 
 if [ ! -d "$LOQ_DIR/recordings" ]; then
   mkdir -p "$LOQ_DIR/recordings"
