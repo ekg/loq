@@ -8,7 +8,7 @@ TMP_DIR="$LOQ_DIR/tmp"
 CONFIG_FILE="$LOQ_DIR/keys"
 STATS_FILE="$LOQ_DIR/stats.tsv"
 LOG_FILE="$LOQ_DIR/loq.log"
-HUD_TIMEOUT=5
+HUD_TIMEOUT=2
 
 mkdir -p "$LOQ_DIR" "$TMP_DIR" "$LOQ_DIR/recordings"
 
@@ -31,6 +31,7 @@ close_notification() {
 
 # Function to start recording
 start_recording() {
+  close_notification
   local timestamp=$(date -u +"%Y%m%dT%H%M%SZ")
   local audio="$LOQ_DIR/recordings/$timestamp.wav"
   touch "$audio"
