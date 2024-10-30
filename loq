@@ -27,8 +27,10 @@ notify() {
 
 # Function to close notification
 close_notification() {
-  local id=$(cat "$TMP_DIR/notification_id")
-  gdbus call --session --dest=org.freedesktop.Notifications --object-path=/org/freedesktop/Notifications --method=org.freedesktop.Notifications.CloseNotification "$id" >/dev/null
+  if [ -s "$TMP_DIR/notification_id" ]; then  
+    local id=$(cat "$TMP_DIR/notification_id")
+    gdbus call --session --dest=org.freedesktop.Notifications --object-path=/org/freedesktop/Notifications --method=org.freedesktop.Notifications.CloseNotification "$id" >/dev/null
+  fi
 }
 
 # Function to start recording
