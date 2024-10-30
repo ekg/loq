@@ -10,7 +10,9 @@ STATS_FILE="$LOQ_DIR/stats.tsv"
 LOG_FILE="$LOQ_DIR/loq.log"
 HUD_TIMEOUT=2
 
+# Ensure all required directories exist
 mkdir -p "$LOQ_DIR" "$TMP_DIR" "$LOQ_DIR/recordings"
+touch "$TMP_DIR/notification_id"  # Create empty notification ID file if it doesn't exist
 
 # Function to log errors
 log_error() {
