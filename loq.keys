@@ -1,0 +1,9 @@
+# OpenAI configuration (uncomment and add your key to use)
+#LOQ_API_KEY=sk_...  # your OpenAI API key
+#LOQ_API_URL=https://api.openai.com/v1/audio/transcriptions
+#LOQ_API_MODEL=whisper-1
+
+# Groq configuration (uncomment and add your key to use)
+#LOQ_API_KEY=gsk_...  # your Groq API key
+#LOQ_API_URL=https://api.groq.com/openai/v1/audio/transcriptions
+#LOQ_API_MODEL=whisper-large-v3
