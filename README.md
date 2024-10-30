@@ -12,12 +12,19 @@
     cd loq
     ```
 
-2. **Create a configuration file** named `keys` in your configuration directory `~/.loq` and add your OpenAI API key:
+2. **Create a configuration file** named `keys` in your configuration directory `~/.loq` and add your API configuration:
     ```bash
     mkdir -p ~/.loq
-    echo "OPENAI_API_KEY=sk-YOUR_API_KEY" > ~/.loq/keys
+    cat > ~/.loq/keys << 'EOL'
+    # groq configuration
+    LOQ_API_KEY=gsk_...  # your Groq API key
+    LOQ_API_URL=https://api.groq.com/openai/v1/audio/transcriptions
+    LOQ_API_MODEL=whisper-large-v3
+    EOL
     chmod 600 ~/.loq/keys
     ```
+
+    You'll need to replace `gsk_...` with your actual Groq API key. The configuration file supports different API providers - just uncomment the section for your preferred provider and add your API key.
 
 3. **Install the required dependencies**:
     - `sox` (`rec`): for audio recording
