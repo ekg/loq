@@ -32,11 +32,15 @@
     - `xclip`: for clipboard manipulation
     - `xdotool`: for simulating keyboard input
     - `notify-send` and `gdbus`: for notifications
+    - `ffprobe`: for audio file analysis (part of ffmpeg)
+    - `bc`: for floating point calculations
 
-    You can install them all with:
+    On Ubuntu/Debian systems, you can install all dependencies with:
     ```bash
-    sudo apt install sox lame curl xclip xdotool libnotify-bin
+    sudo apt install sox lame curl xclip xdotool libnotify-bin ffmpeg bc
     ```
+
+    On other Linux distributions, use your package manager to install equivalent packages.
 
 4. **Set up key bindings** in your settings (e.g., keyboard settings on Ubuntu GNOME Shell) to run the `loq` script with the `toggle` subcommand when a particular key or key combination is pressed (e.g., F10).
 
