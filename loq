@@ -21,7 +21,7 @@ log_error() {
 
 # Function to display notification
 notify() {
-  NOTIFICATION_ID=$(notify-send "$1" "$2" -e -u critical --print-id -t 0)
+  NOTIFICATION_ID=$(notify-send.sh "$1" "$2" -u critical --print-id -t 0)
   echo $NOTIFICATION_ID >"$TMP_DIR/notification_id"
 }
 
@@ -147,7 +147,9 @@ stop_recording() {
   echo -n "$response" | xclip -sel clip
   
   # Simulate the paste action
-  xdotool key ctrl+v
+  # (this should work in Wayland, but I think that some security sandoboxing
+  # prevents it from doing so)
+  wl-paste
 
   # Close processing response notification
   (sleep $HUD_TIMEOUT && close_notification) &
