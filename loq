@@ -146,8 +146,8 @@ stop_recording() {
   # Copy response to clipboard
   echo -n "$response" | xclip -sel clip
   
-  # Simulate the paste action
-  xdotool key ctrl+v
+  # Simulate the paste action for terminal (Ctrl+Shift+V)
+  xdotool key ctrl+shift+v
 
   # Close processing response notification
   (sleep $HUD_TIMEOUT && close_notification) &
