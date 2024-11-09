@@ -143,8 +143,9 @@ stop_recording() {
   recording_duration=$(printf "%.2f" $recording_duration)
   notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
 
-  # Copy response to primary selection buffer
-  echo -n "$response" | xclip -sel primary
+  # Copy response to both clipboard buffers
+  echo -n "$response" | xclip -sel clip     # Regular clipboard (Ctrl+V)
+  echo -n "$response" | xclip -sel primary  # X primary selection (middle-click)
   
   # Simulate middle mouse button click for pasting
   xdotool click 2
