@@ -145,10 +145,9 @@ stop_recording() {
 
   # Copy response to both clipboard buffers
   echo -n "$response" | xclip -sel clip     # Regular clipboard (Ctrl+V)
-  echo -n "$response" | xclip -sel primary  # X primary selection (middle-click)
-  
+
   # Simulate middle mouse button click for pasting
-  xdotool click 2
+  xdotool key --clearmodifiers 'ctrl+shift+v'
 
   # Close processing response notification
   (sleep $HUD_TIMEOUT && close_notification) &
