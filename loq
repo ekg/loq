@@ -143,11 +143,11 @@ stop_recording() {
   recording_duration=$(printf "%.2f" $recording_duration)
   notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
 
-  # Copy response to clipboard
-  echo -n "$response" | xclip -sel clip
+  # Copy response to primary selection buffer
+  echo -n "$response" | xclip -sel primary
   
-  # Simulate the paste action for terminal (Ctrl+Shift+V)
-  xdotool key ctrl+shift+v
+  # Simulate middle mouse button click for pasting
+  xdotool click 2
 
   # Close processing response notification
   (sleep $HUD_TIMEOUT && close_notification) &
