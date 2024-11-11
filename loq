@@ -65,6 +65,7 @@ process_audio() {
   
   # Display notification for sending to Whisper API if enabled
   if [ "$show_notifications" = "true" ]; then
+    close_notification
     audio_kb=$(du -k "$mp3_audio" | cut -f1)
     notify "Sending to Whisper..." "🔊 Sending $audio_kb KB audio to Whisper API"
   fi
@@ -109,15 +110,21 @@ process_audio() {
   echo -e "$stats_data" > "${mp3_audio%.mp3}.stats"
 
   if [ "$show_notifications" = "true" ]; then
-    close_notification
     # Format stats for display
     words_per_second=$(printf "%.2f" $words_per_second)
     words_per_minute=$(printf "%.2f" $words_per_minute)
     processing_time=$(printf "%.2f" $processing_time)
     recording_duration=$(printf "%.2f" $recording_duration)
+    
+    # Close previous notification and show completion
+    close_notification
     notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
-    # Set up notification cleanup
-    (sleep $HUD_TIMEOUT && close_notification) &
+    
+    # Set up notification cleanup with a new background process
+    (
+      sleep $HUD_TIMEOUT
+      close_notification
+    ) &
   fi
 
   # Copy response to both clipboard buffers
