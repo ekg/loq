@@ -56,6 +56,72 @@ start_recording() {
   echo $! > "$TMP_DIR/cleanup_pid"
 }
 
+# Function to process an MP3 file and generate transcription
+process_audio() {
+  local mp3_audio="$1"
+  local transcript="${mp3_audio%.mp3}.txt"
+  
+  # Display notification for sending to Whisper API
+  audio_kb=$(du -k "$mp3_audio" | cut -f1)
+  notify "Sending to Whisper..." "🔊 Sending $audio_kb KB audio to Whisper API"
+  
+  # Send audio file to OpenAI Whisper API using curl
+  local start_time=$(date +%s.%N)
+  local response=$(curl -s -X POST -H "Authorization: Bearer $LOQ_API_KEY" \
+    -H "Content-Type: multipart/form-data" \
+    -F file="@$mp3_audio" \
+    -F model=$LOQ_API_MODEL \
+    -F response_format="text" \
+    $LOQ_API_URL )
+  # trim leading and trailing whitespace from response
+  response=$(echo "$response" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+  if [ $? -ne 0 ]; then
+    log_error "Failed to send audio to Whisper API"
+    exit 1
+  fi
+  local end_time=$(date +%s.%N)
+
+  # Save transcription to a text file
+  echo "$response" > "$transcript"
+  
+  # Extract statistics from response and calculate additional stats
+  local word_count=$(echo "$response" | wc -w)
+  local recording_duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$mp3_audio")
+  local words_per_second=$(echo "scale=2; $word_count / $recording_duration" | bc)
+  local words_per_minute=$(echo "scale=2; $words_per_second * 60" | bc)
+  local processing_time=$(echo "$end_time - $start_time" | bc)
+  local utc_time=$(date -u +"%Y%m%dT%H%M%SZ")
+  local local_time=$(date +"%Y%m%dT%H%M%SZ")
+  local microseconds_since_1970=$(date +%s%6N)
+  
+  # Append statistics to stats file
+  if [ ! -s "$STATS_FILE" ]; then
+    echo -e "Microsec_Since_1970\tUTC_Time\tLocal_Time\tDuration_Sec\tWord_Count\tWPS\tWPM\tProcessing_Sec" > "$STATS_FILE"
+  fi
+  echo -e "$microseconds_since_1970\t$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time" >> "$STATS_FILE"
+  
+  # Save statistics to a .stats file attached to the recording
+  local stats_data=$(echo -e "$microseconds_since_1970\t$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time")
+  echo -e "$stats_data" > "${mp3_audio%.mp3}.stats"
+
+  close_notification
+  # Format stats for display
+  words_per_second=$(printf "%.2f" $words_per_second)
+  words_per_minute=$(printf "%.2f" $words_per_minute)
+  processing_time=$(printf "%.2f" $processing_time)
+  recording_duration=$(printf "%.2f" $recording_duration)
+  notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
+
+  # Copy response to both clipboard buffers
+  echo -n "$response" | xclip -sel clip
+
+  # Simulate middle mouse button click for pasting
+  xdotool key --clearmodifiers 'ctrl+shift+v'
+
+  # Close processing response notification
+  (sleep $HUD_TIMEOUT && close_notification) &
+}
+
 # Function to stop recording and process the audio
 stop_recording() {
   if [ ! -f "$TMP_DIR/recording.lock" ]; then
@@ -85,72 +151,11 @@ stop_recording() {
     exit 1
   fi
 
-  # Close processing notification
-  close_notification
-  
-  # Display notification for sending to Whisper API
-  audio_kb=$(du -k "$mp3_audio" | cut -f1)
-  notify "Sending to Whisper..." "🔊 Sending $audio_kb KB audio to Whisper API"
-  
-  # Send audio file to OpenAI Whisper API using curl
-  local start_time=$(date +%s.%N)
-  local response=$(curl -s -X POST -H "Authorization: Bearer $LOQ_API_KEY" \
-    -H "Content-Type: multipart/form-data" \
-    -F file="@$mp3_audio" \
-    -F model=$LOQ_API_MODEL \
-    -F response_format="text" \
-    $LOQ_API_URL )
-  # trim leading and trailing whitespace from response
-  response=$(echo "$response" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-  if [ $? -ne 0 ]; then
-    log_error "Failed to send audio to Whisper API"
-    exit 1
-  fi
-  local end_time=$(date +%s.%N)
-
-  # Save transcription to a text file
-  echo "$response" > "$transcript"
-  
   # Clean up wav of recording
   rm -f "$audio"
   
-  # Extract statistics from response and calculate additional stats
-  local word_count=$(echo "$response" | wc -w)
-  local recording_duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$mp3_audio")
-  local words_per_second=$(echo "scale=2; $word_count / $recording_duration" | bc)
-  local words_per_minute=$(echo "scale=2; $words_per_second * 60" | bc)
-  local processing_time=$(echo "$end_time - $start_time" | bc)
-  local utc_time=$(date -u +"%Y%m%dT%H%M%SZ")
-  local local_time=$(date +"%Y%m%dT%H%M%SZ")
-  local microseconds_since_1970=$(date +%s%6N)
-  
-  # Append statistics to stats file
-  if [ ! -s "$STATS_FILE" ]; then
-    echo -e "Microsec_Since_1970\tUTC_Time\tLocal_Time\tDuration_Sec\tWord_Count\tWPS\tWPM\tProcessing_Sec" > "$STATS_FILE"
-  fi
-  echo -e "$microseconds_since_1970\t$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time" >> "$STATS_FILE"
-  
-  # Save statistics to a .stats file attached to the recording
-  local stats_data=$(echo -e "$microseconds_since_1970\t$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time")
-  echo -e "$stats_data" > "${audio%.wav}.stats"
-
-  close_notification
-  # show a notification with stats (words, duration, words per second, words per minute) and processing time, as 'X words / Ys, Z wpm, Qs proc'
-  # try again, make sure to round to 2 decimal places
-  words_per_second=$(printf "%.2f" $words_per_second)
-  words_per_minute=$(printf "%.2f" $words_per_minute)
-  processing_time=$(printf "%.2f" $processing_time)
-  recording_duration=$(printf "%.2f" $recording_duration)
-  notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
-
-  # Copy response to both clipboard buffers
-  echo -n "$response" | xclip -sel clip     # Regular clipboard (Ctrl+V)
-
-  # Simulate middle mouse button click for pasting
-  xdotool key --clearmodifiers 'ctrl+shift+v'
-
-  # Close processing response notification
-  (sleep $HUD_TIMEOUT && close_notification) &
+  # Process the converted MP3
+  process_audio "$mp3_audio"
 }
 
 # Function to toggle recording
@@ -205,6 +210,25 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
+# Function to redo transcription
+redo_transcription() {
+  local mp3_file="$1"
+  
+  # If no file specified, find the latest MP3 in recordings directory
+  if [ -z "$mp3_file" ]; then
+    mp3_file=$(find "$LOQ_DIR/recordings" -name "*.mp3" -type f -printf '%T@ %p\n' | sort -n | tail -1 | cut -f2- -d" ")
+    if [ -z "$mp3_file" ]; then
+      log_error "No MP3 files found in recordings directory"
+      exit 1
+    fi
+  elif [ ! -f "$mp3_file" ]; then
+    log_error "Specified file does not exist: $mp3_file"
+    exit 1
+  fi
+  
+  process_audio "$mp3_file"
+}
+
 # Main script logic
 case "$1" in
   start)
@@ -215,5 +239,12 @@ case "$1" in
     ;;
   toggle)
     toggle_recording
+    ;;
+  redo)
+    redo_transcription "${2:-}"  # Pass second argument if it exists
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|toggle|redo [mp3_file]}"
+    exit 1
     ;;
 esac
