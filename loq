@@ -60,11 +60,14 @@ start_recording() {
 process_audio() {
   local mp3_audio="$1"
   local simulate_paste="${2:-true}"  # Optional second parameter, defaults to true
+  local show_notifications="${3:-true}"  # Optional third parameter, defaults to true
   local transcript="${mp3_audio%.mp3}.txt"
   
-  # Display notification for sending to Whisper API
-  audio_kb=$(du -k "$mp3_audio" | cut -f1)
-  notify "Sending to Whisper..." "🔊 Sending $audio_kb KB audio to Whisper API"
+  # Display notification for sending to Whisper API if enabled
+  if [ "$show_notifications" = "true" ]; then
+    audio_kb=$(du -k "$mp3_audio" | cut -f1)
+    notify "Sending to Whisper..." "🔊 Sending $audio_kb KB audio to Whisper API"
+  fi
   
   # Send audio file to OpenAI Whisper API using curl
   local start_time=$(date +%s.%N)
@@ -105,13 +108,17 @@ process_audio() {
   local stats_data=$(echo -e "$microseconds_since_1970\t$utc_time\t$local_time\t$recording_duration\t$word_count\t$words_per_second\t$words_per_minute\t$processing_time")
   echo -e "$stats_data" > "${mp3_audio%.mp3}.stats"
 
-  close_notification
-  # Format stats for display
-  words_per_second=$(printf "%.2f" $words_per_second)
-  words_per_minute=$(printf "%.2f" $words_per_minute)
-  processing_time=$(printf "%.2f" $processing_time)
-  recording_duration=$(printf "%.2f" $recording_duration)
-  notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
+  if [ "$show_notifications" = "true" ]; then
+    close_notification
+    # Format stats for display
+    words_per_second=$(printf "%.2f" $words_per_second)
+    words_per_minute=$(printf "%.2f" $words_per_minute)
+    processing_time=$(printf "%.2f" $processing_time)
+    recording_duration=$(printf "%.2f" $recording_duration)
+    notify "Transcription Complete" "🔊 $word_count words / $recording_duration s, $words_per_minute wpm, processed in $processing_time s "
+    # Set up notification cleanup
+    (sleep $HUD_TIMEOUT && close_notification) &
+  fi
 
   # Copy response to both clipboard buffers
   echo -n "$response" | xclip -sel clip
@@ -121,8 +128,6 @@ process_audio() {
     xdotool key --clearmodifiers 'ctrl+shift+v'
   fi
 
-  # Close processing response notification
-  (sleep $HUD_TIMEOUT && close_notification) &
 }
 
 # Function to stop recording and process the audio
@@ -158,7 +163,7 @@ stop_recording() {
   rm -f "$audio"
   
   # Process the converted MP3 with paste simulation
-  process_audio "$mp3_audio" "true"
+  process_audio "$mp3_audio" "true" "true"
 }
 
 # Function to toggle recording
@@ -229,7 +234,7 @@ redo_transcription() {
     exit 1
   fi
   
-  process_audio "$mp3_file" "false"
+  process_audio "$mp3_file" "false" "false"
 }
 
 # Main script logic
