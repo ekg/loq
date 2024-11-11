@@ -59,6 +59,7 @@ start_recording() {
 # Function to process an MP3 file and generate transcription
 process_audio() {
   local mp3_audio="$1"
+  local simulate_paste="${2:-true}"  # Optional second parameter, defaults to true
   local transcript="${mp3_audio%.mp3}.txt"
   
   # Display notification for sending to Whisper API
@@ -115,8 +116,10 @@ process_audio() {
   # Copy response to both clipboard buffers
   echo -n "$response" | xclip -sel clip
 
-  # Simulate middle mouse button click for pasting
-  xdotool key --clearmodifiers 'ctrl+shift+v'
+  # Only simulate paste if requested
+  if [ "$simulate_paste" = "true" ]; then
+    xdotool key --clearmodifiers 'ctrl+shift+v'
+  fi
 
   # Close processing response notification
   (sleep $HUD_TIMEOUT && close_notification) &
@@ -154,8 +157,8 @@ stop_recording() {
   # Clean up wav of recording
   rm -f "$audio"
   
-  # Process the converted MP3
-  process_audio "$mp3_audio"
+  # Process the converted MP3 with paste simulation
+  process_audio "$mp3_audio" "true"
 }
 
 # Function to toggle recording
@@ -226,7 +229,7 @@ redo_transcription() {
     exit 1
   fi
   
-  process_audio "$mp3_file"
+  process_audio "$mp3_file" "false"
 }
 
 # Main script logic
