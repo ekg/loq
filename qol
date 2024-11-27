@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -euo pipefail
+
+CONFIG_FILE="$HOME/.loq/keys"
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Error: Config file not found at $CONFIG_FILE" >&2
+    echo "Please create it with LOQ_API_KEY, LOQ_API_MODEL, and LOQ_API_URL variables" >&2
+    exit 1
+fi
+
+source "$CONFIG_FILE"
+
+if [ -z "${LOQ_API_KEY:-}" ] || [ -z "${LOQ_API_MODEL:-}" ] || [ -z "${LOQ_API_URL:-}" ]; then
+    echo "Error: Missing required configuration variables" >&2
+    echo "Please ensure LOQ_API_KEY, LOQ_API_MODEL, and LOQ_API_URL are set in $CONFIG_FILE" >&2
+    exit 1
+fi
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <input.m4a>" >&2
+    exit 1
+fi
+
+INPUT_FILE="$1"
+
+if [ ! -f "$INPUT_FILE" ]; then
+    echo "Error: Input file not found: $INPUT_FILE" >&2
+    exit 1
+fi
+
+TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT
+
+ffmpeg -i "$INPUT_FILE" -f segment -segment_time 300 -c:a libmp3lame -q:a 4 "$TEMP_DIR/chunk_%03d.mp3" -y 2>/dev/null
+
+for chunk in "$TEMP_DIR"/chunk_*.mp3; do
+    curl -s -X POST \
+        -H "Authorization: Bearer $LOQ_API_KEY" \
+        -H "Content-Type: multipart/form-data" \
+        -F "file=@$chunk" \
+        -F "model=$LOQ_API_MODEL" \
+        -F "response_format=text" \
+        "$LOQ_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+    echo
+done
